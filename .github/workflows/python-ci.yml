@@ -1,0 +1,55 @@
+name: Python CI/CD
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Kodu Checkout Et
+        uses: actions/checkout@v2
+
+      - name: Python Ortamını Kur
+        uses: actions/setup-python@v3
+        with:
+          python-version: '3.9'
+
+      - name: Bağımlılıkları Yükle
+        run: |
+          python -m venv venv
+          source venv/bin/activate
+          pip install -r requirements.txt
+
+      - name: Testleri Çalıştır
+        run: |
+          source venv/bin/activate
+          pytest
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Docker Image Push
+        run: |
+          echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+          docker build -t python-app .
+          docker tag python-app my-docker-repo/python-app:latest
+          docker push my-docker-repo/python-app:latest
+
+  notify:
+    needs: deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Slack Bildirimi Gönder
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+          SLACK_MESSAGE: 'Python uygulaması başarıyla deploy edildi! 🎉'
+
+
